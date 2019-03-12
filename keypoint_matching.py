@@ -15,7 +15,7 @@ def main():
     ret, bimg = cap.read()
 
     orb = cv2.ORB_create()
-    bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+    bf = cv2.BFMatcher(cv2.NORM_HAMMING)
 
     while(1):
         ret, aimg = cap.read()
@@ -39,14 +39,19 @@ def main():
         if len(des1) < 15 or len(des2) < 15:
             continue
 
-        matches = bf.match(des1, des2)
-        matches = sorted(matches, key=lambda x: x.distance)
+        matches = bf.knnMatch(des1,des2, k=2)
+
+        # 距離が近いキーポイントだけに絞る
+        good = []
+        for m, n in matches:
+            if m.distance < 0.7 * n.distance:
+                good.append(m)
 
         # Draw first 10 matches.
-        mimg = cv2.drawMatches(bimg, kp1, aimg, kp2, matches[:15], None, flags=2)
+        mimg = cv2.drawMatches(bimg, kp1, aimg, kp2, good, None, flags=2)
 
-        src_pts = np.float32([kp1[m.queryIdx].pt for m in matches[:15]]).reshape(-1, 1, 2)
-        dst_pts = np.float32([kp2[m.trainIdx].pt for m in matches[:15]]).reshape(-1, 1, 2)
+        src_pts = np.float32([kp1[m.queryIdx].pt for m in good]).reshape(-1, 1, 2)
+        dst_pts = np.float32([kp2[m.trainIdx].pt for m in good]).reshape(-1, 1, 2)
 
         M, mask = cv2.findHomography(src_pts, dst_pts, cv2.RANSAC, 5.0)
 
